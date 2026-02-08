@@ -1,5 +1,6 @@
-static_sites:
-  - name: sketchify-studio
+services:
+  - type: static
+    name: sketchify-studio
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     routes:
