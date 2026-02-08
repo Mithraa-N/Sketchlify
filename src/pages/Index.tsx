@@ -35,28 +35,34 @@ const Index = () => {
 
   const processImage = useCallback(
     async (img: HTMLImageElement, opts: SketchOptions, tex: TextureType) => {
-      setProcessing(true);
-      
-      // Use setTimeout to let UI update
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      const result = sketchify(img, opts);
-      setSketchSrc(result);
-      
-      // Apply texture if selected
-      if (tex !== "none") {
-        const textureImg = textureImagesRef.current.get(tex);
-        if (textureImg) {
-          const textured = await applyTexture(result, textureImg, "multiply", 0.25);
-          setFinalSrc(textured);
+      try {
+        setProcessing(true);
+
+        // Use setTimeout to let UI update
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const result = sketchify(img, opts);
+        if (!result) throw new Error("Processing failed");
+
+        setSketchSrc(result);
+
+        // Apply texture if selected
+        if (tex !== "none") {
+          const textureImg = textureImagesRef.current.get(tex);
+          if (textureImg) {
+            const textured = await applyTexture(result, textureImg, "multiply", 0.25);
+            setFinalSrc(textured);
+          } else {
+            setFinalSrc(result);
+          }
         } else {
           setFinalSrc(result);
         }
-      } else {
-        setFinalSrc(result);
+      } catch (error) {
+        console.error("Sketch processing error:", error);
+      } finally {
+        setProcessing(false);
       }
-      
-      setProcessing(false);
     },
     []
   );
@@ -173,7 +179,7 @@ const Index = () => {
                   transition={{ delay: 0.1 }}
                   className="text-muted-foreground font-body max-w-md mx-auto"
                 >
-                  Upload any image and watch it become a graphite masterpiece — 
+                  Upload any image and watch it become a graphite masterpiece —
                   with full creative control over every detail.
                 </motion.p>
               </div>

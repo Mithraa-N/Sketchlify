@@ -8,8 +8,23 @@ interface BeforeAfterSliderProps {
 
 const BeforeAfterSlider = ({ originalSrc, sketchSrc }: BeforeAfterSliderProps) => {
   const [position, setPosition] = useState(50);
+  const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+
+  // Track container width for correct clipping
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      if (entries[0]) {
+        setContainerWidth(entries[0].contentRect.width);
+      }
+    });
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const updatePosition = useCallback((clientX: number) => {
     if (!containerRef.current) return;
@@ -70,7 +85,7 @@ const BeforeAfterSlider = ({ originalSrc, sketchSrc }: BeforeAfterSliderProps) =
           src={originalSrc}
           alt="Original"
           className="block w-full h-auto"
-          style={{ width: `${containerRef.current?.offsetWidth || 100}px`, maxWidth: "none" }}
+          style={{ width: `${containerWidth || 100}px`, maxWidth: "none" }}
           draggable={false}
         />
       </div>
@@ -85,8 +100,8 @@ const BeforeAfterSlider = ({ originalSrc, sketchSrc }: BeforeAfterSliderProps) =
         <div className="absolute inset-y-0 w-0.5 bg-primary/80" />
         <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-lg">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M5 3L2 8L5 13" stroke="hsl(var(--primary-foreground))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M11 3L14 8L11 13" stroke="hsl(var(--primary-foreground))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M5 3L2 8L5 13" stroke="hsl(var(--primary-foreground))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M11 3L14 8L11 13" stroke="hsl(var(--primary-foreground))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
       </div>

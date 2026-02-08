@@ -55,11 +55,11 @@ function detectEdges(
 ): Uint8ClampedArray {
   const src = imageData.data;
   const edges = new Uint8ClampedArray(w * h);
-  
+
   // Sobel kernels
   const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
   const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
-  
+
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
       let gx = 0, gy = 0;
@@ -84,15 +84,26 @@ export function sketchify(
   options: Partial<SketchOptions> = {}
 ): string {
   const opts = { ...defaultOptions, ...options };
-  const w = image.naturalWidth;
-  const h = image.naturalHeight;
+
+  // Safe max dimensions for browser canvas (prevent OOM)
+  const MAX_DIM = 2400;
+  let w = image.naturalWidth;
+  let h = image.naturalHeight;
+
+  if (w > MAX_DIM || h > MAX_DIM) {
+    const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
+    w = Math.floor(w * ratio);
+    h = Math.floor(h * ratio);
+  }
 
   // Canvas for grayscale
   const grayCanvas = document.createElement("canvas");
   grayCanvas.width = w;
   grayCanvas.height = h;
-  const grayCtx = grayCanvas.getContext("2d")!;
-  grayCtx.drawImage(image, 0, 0);
+  const grayCtx = grayCanvas.getContext("2d", { willReadFrequently: true });
+  if (!grayCtx) return "";
+
+  grayCtx.drawImage(image, 0, 0, w, h);
   const grayData = grayCtx.getImageData(0, 0, w, h);
   const gd = grayData.data;
 
@@ -106,11 +117,12 @@ export function sketchify(
   }
   grayCtx.putImageData(grayData, 0, 0);
 
-  // Canvas for inverted + blurred
-  const blurCanvas = document.createElement("canvas");
-  blurCanvas.width = w;
-  blurCanvas.height = h;
-  const blurCtx = blurCanvas.getContext("2d")!;
+  // Canvas for inverted
+  const invertCanvas = document.createElement("canvas");
+  invertCanvas.width = w;
+  invertCanvas.height = h;
+  const invertCtx = invertCanvas.getContext("2d");
+  if (!invertCtx) return "";
 
   // Invert the grayscale
   const invertedData = grayCtx.getImageData(0, 0, w, h);
@@ -120,26 +132,33 @@ export function sketchify(
     id[i + 1] = 255 - id[i + 1];
     id[i + 2] = 255 - id[i + 2];
   }
-  blurCtx.putImageData(invertedData, 0, 0);
+  invertCtx.putImageData(invertedData, 0, 0);
 
-  // Apply Gaussian blur using CSS filter
+  // Apply Gaussian blur
+  // Note: if ctx.filter is not supported or fails, the result will be a blank (white) page in color dodge.
+  // We check for support and provide a fallback or ensure it's applied.
   const blurRadius = Math.max(1, Math.round(opts.intensity));
-  const blurCanvas2 = document.createElement("canvas");
-  blurCanvas2.width = w;
-  blurCanvas2.height = h;
-  const blurCtx2 = blurCanvas2.getContext("2d")!;
-  blurCtx2.filter = `blur(${blurRadius}px)`;
-  blurCtx2.drawImage(blurCanvas, 0, 0);
+  const blurCanvas = document.createElement("canvas");
+  blurCanvas.width = w;
+  blurCanvas.height = h;
+  const blurCtx = blurCanvas.getContext("2d");
+  if (!blurCtx) return "";
+
+  // Set filter before drawing
+  blurCtx.filter = `blur(${blurRadius}px)`;
+  blurCtx.drawImage(invertCanvas, 0, 0);
 
   // Get blurred data
-  const blurredData = blurCtx2.getImageData(0, 0, w, h);
+  const blurredData = blurCtx.getImageData(0, 0, w, h);
   const bd = blurredData.data;
 
   // Color dodge blend: result = grayscale * 256 / (256 - blurred)
   const resultCanvas = document.createElement("canvas");
   resultCanvas.width = w;
   resultCanvas.height = h;
-  const resultCtx = resultCanvas.getContext("2d")!;
+  const resultCtx = resultCanvas.getContext("2d");
+  if (!resultCtx) return "";
+
   const resultData = resultCtx.createImageData(w, h);
   const rd = resultData.data;
 
@@ -147,6 +166,7 @@ export function sketchify(
     for (let c = 0; c < 3; c++) {
       const gray = gd[i + c];
       const blur = bd[i + c];
+      // Color dodge formula: min(255, (base * 256) / (256 - blend))
       if (blur === 255) {
         rd[i + c] = 255;
       } else {
@@ -161,12 +181,11 @@ export function sketchify(
     const edgeGrayData = grayCtx.getImageData(0, 0, w, h);
     const edges = detectEdges(edgeGrayData, w, h);
     const edgeFactor = opts.edgeStrength / 100;
-    
+
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
         const edge = edges[y * w + x];
-        // Darken where edges are detected
         const darkening = (edge / 255) * edgeFactor;
         for (let c = 0; c < 3; c++) {
           rd[i + c] = Math.max(0, rd[i + c] - darkening * 255);
@@ -181,13 +200,11 @@ export function sketchify(
     for (let i = 0; i < rd.length; i += 4) {
       const sketchBrightness = (rd[i] + rd[i + 1] + rd[i + 2]) / 3 / 255;
       for (let c = 0; c < 3; c++) {
-        // Blend original color with sketch, weighted by sketch brightness
         const original = originalData[i + c];
         const sketch = rd[i + c];
-        // Desaturate original slightly
         const faded = original * 0.7 + (originalData[i] + originalData[i + 1] + originalData[i + 2]) / 3 * 0.3;
         rd[i + c] = Math.round(
-          sketch * (1 - colorFactor * sketchBrightness) + 
+          sketch * (1 - colorFactor * sketchBrightness) +
           faded * colorFactor * sketchBrightness
         );
       }
@@ -217,24 +234,24 @@ export function applyTexture(
       canvas.width = img.width;
       canvas.height = img.height;
       const ctx = canvas.getContext("2d")!;
-      
+
       // Draw sketch
       ctx.drawImage(img, 0, 0);
-      
+
       // Draw texture with blend mode
       ctx.globalCompositeOperation = blendMode;
       ctx.globalAlpha = opacity;
-      
+
       // Tile texture to cover canvas
       const pattern = ctx.createPattern(textureImage, "repeat");
       if (pattern) {
         ctx.fillStyle = pattern;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
-      
+
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
-      
+
       resolve(canvas.toDataURL("image/png"));
     };
     img.src = sketchDataUrl;
@@ -253,31 +270,31 @@ export function exportSketch(
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      
+
       // Scale based on quality
       const scale = quality === 'print' ? 2 : 1;
       const maxDim = quality === 'print' ? 4096 : 2048;
-      
+
       let w = originalWidth * scale;
       let h = originalHeight * scale;
-      
+
       // Limit max dimension
       if (w > maxDim || h > maxDim) {
         const ratio = Math.min(maxDim / w, maxDim / h);
         w *= ratio;
         h *= ratio;
       }
-      
+
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext("2d")!;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, 0, 0, w, h);
-      
+
       const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
       const jpegQuality = quality === 'print' ? 0.95 : 0.85;
-      
+
       resolve(canvas.toDataURL(mimeType, format === 'jpeg' ? jpegQuality : undefined));
     };
     img.src = dataUrl;
