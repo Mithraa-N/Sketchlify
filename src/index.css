@@ -1,0 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 30 10% 6%;
+    --foreground: 36 20% 88%;
+
+    --card: 30 8% 10%;
+    --card-foreground: 36 20% 88%;
+
+    --popover: 30 8% 10%;
+    --popover-foreground: 36 20% 88%;
+
+    --primary: 38 50% 65%;
+    --primary-foreground: 30 10% 6%;
+
+    --secondary: 30 6% 16%;
+    --secondary-foreground: 36 15% 75%;
+
+    --muted: 30 5% 14%;
+    --muted-foreground: 30 8% 50%;
+
+    --accent: 38 40% 55%;
+    --accent-foreground: 30 10% 6%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 30 8% 18%;
+    --input: 30 8% 18%;
+    --ring: 38 50% 65%;
+
+    --radius: 0.75rem;
+
+    --parchment: 38 30% 92%;
+    --graphite: 30 5% 30%;
+    --charcoal: 30 8% 12%;
+    --pencil-light: 38 20% 75%;
+    --pencil-dark: 30 10% 20%;
+
+    --sidebar-background: 30 8% 8%;
+    --sidebar-foreground: 36 20% 88%;
+    --sidebar-primary: 38 50% 65%;
+    --sidebar-primary-foreground: 30 10% 6%;
+    --sidebar-accent: 30 6% 16%;
+    --sidebar-accent-foreground: 36 20% 88%;
+    --sidebar-border: 30 8% 18%;
+    --sidebar-ring: 38 50% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
+
+  .font-body {
+    font-family: 'Inter', sans-serif;
+  }
+
+  .bg-parchment {
+    background-color: hsl(var(--parchment));
+  }
+
+  .text-parchment {
+    color: hsl(var(--parchment));
+  }
+
+  .bg-charcoal {
+    background-color: hsl(var(--charcoal));
+  }
+
+  .bg-graphite {
+    background-color: hsl(var(--graphite));
+  }
+
+  .text-graphite {
+    color: hsl(var(--graphite));
+  }
+
+  .border-pencil {
+    border-color: hsl(var(--pencil-dark));
+  }
+
+  .sketch-shadow {
+    box-shadow: 0 20px 60px -15px hsl(0 0% 0% / 0.5),
+                0 0 0 1px hsl(var(--border));
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 40px -10px hsl(var(--primary) / 0.3);
+  }
+}
